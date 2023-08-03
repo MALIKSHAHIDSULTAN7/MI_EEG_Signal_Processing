@@ -7,6 +7,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 from mne.channels import read_custom_montage
+from mne import filter
 from mne.filter import create_filter
 import autoreject
 import time 
@@ -60,14 +61,80 @@ print('Considered')
 print(consider)
 print(60*'#')
 montage  = read_custom_montage(locations)
-plt.ioff()
-montage.plot()
-plt.show(block=False)
-time.sleep(5)
-print('Script Running')
+
 
 ######################################
 ## Reading the data and Preprocessing
 ######################################
-def preprocess_data(data_path, montage_data):
-    pass
+def preprocess_data(data_path, montage_data, rem_ocular_only = True, output_file_name = None):
+    data = mne.io.read_raw_edf(data_path,preload=True)
+    srate  = 160
+    rename_dict = {}
+    for i,j in zip(data.ch_names,montage.ch_names):
+        if i!=j:
+            print(i,j)
+            rename_dict[i] = j
+    data.rename_channels(rename_dict)
+    data.set_montage(montage_data)
+    # Mean Normalizing the data
+    data = data.apply_function(lambda x: x - x.mean(), picks='all')
+    print(60*'#')
+    print(20*'#','Data Info',20*'#')
+
+    ################### Filtering ######################
+    data_ = data.get_data() 
+    sfreq = srate
+
+    # Applying the high-pass filter to remove frequencies below 0.5 Hz
+    data_highpass = filter.filter_data(data_, sfreq, l_freq=0.5, h_freq=None, fir_design='firwin', phase='zero')
+
+    # Apply the notch filter to remove frequencies between 59.5 and 60.5 Hz
+    notch_freq = 60.0
+    freqs = [60]  # Frequencies to be removed
+    fir_design = 'firwin'  # Use FIR filter design
+    phase = 'zero'  # Set to 'zero' for causal filter
+    # Apply the band-stop filter to remove frequencies in the range of 59.5 to 60.5 Hz
+    data_filtered = mne.filter.notch_filter(data_highpass, sfreq, freqs=freqs, fir_design=fir_design, phase=phase)
+
+
+    # Create a new Raw object with the filtered data
+    filtered_raw = mne.io.RawArray(data_filtered, data.info)
+
+    ################################### ICA ######################################################################
+    raw_ica  = filtered_raw.copy()
+
+    random_state = 42   # ensures ICA is reproducable each time it's run
+    ica_n_components = .99     # Specify n_components as a decimal to set % explained variance
+    ica = mne.preprocessing.ICA(
+    n_components=0.99, method="fastica", max_iter="auto", random_state=97)
+    ica.fit(raw_ica)
+    
+    if rem_ocular_only:
+        ica_z_thresh = 1.96
+        eog_indices, eog_scores = ica.find_bads_eog(raw_ica, 
+                                            ch_name=['Fp1.','Fp2.' ,'F8..','F7..'], 
+                                            threshold=ica_z_thresh ,measure ='zscore')
+        #ica.plot_scores(eog_scores, exclude=eog_indices)
+        ica.exclude = eog_indices
+    else:
+        muscle_indices, muscle_scores = ica.find_bads_muscle(raw_ica)
+        ica_z_thresh = 1.96
+        eog_indices, eog_scores = ica.find_bads_eog(raw_ica, 
+                                            ch_name=['Fp1.','Fp2.' ,'F8..','F7..'], 
+                                            threshold=ica_z_thresh ,measure ='zscore')
+        ica.exclude = eog_indices + muscle_indices
+    reconstructed_data = ica.apply(raw_ica)
+    reconstructed_data.set_annotations(data.annotations)
+    mne.export.export_raw(output_file_name,reconstructed_data)
+    
+
+
+
+
+
+
+output_file_name = '/Users/sultm0a/Documents/Sipan Collaboration/Data/files/S008/S008R03_ocular_filtered.edf'
+preprocess_data(data_path = '/Users/sultm0a/Documents/Sipan Collaboration/Data/files/S008/S008R03.edf', montage_data = montage, output_file_name= output_file_name)
+
+
+
