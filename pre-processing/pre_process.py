@@ -13,8 +13,8 @@ import autoreject
 import time 
 ####
 matplotlib.use("TkAgg")
-data_path = '/Users/sultm0a/Documents/Sipan Collaboration/Data/files'
-locations = '/Users/sultm0a/Documents/Sipan Collaboration/Data/files/BioSemi64.loc'
+data_path = 'Specify Main Data Path'
+locations = 'Specify path for location e:g biosemi.loc'
 
 subjects = ['S038', 'S007', 'S031', 'S009', 'S036', 'S096', 'S062', 
             'S065', 'S091', 'S053', 'S098', 'S054', 'S008', 'S037', 'S030', 'S039', 
