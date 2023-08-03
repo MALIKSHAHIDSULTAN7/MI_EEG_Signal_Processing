@@ -29,11 +29,7 @@ subjects = ['S038', 'S007', 'S031', 'S009', 'S036', 'S096', 'S062',
             'S028', 'S021', 'S026', 'S019', 'S072', 'S086', 'S081', 'S075', 'S088', 'S043', 'S044', 
             'S109', 'S107', 'S100', 'S101', 'S106', 'S108']
 
-example_subject = 'S008'
 
-subject_path = os.path.join(data_path,example_subject)
-
-subject_files = os.listdir(subject_path)
 def get_edf_files(path):
     '''
     This function takes the path of the directory for the suject
@@ -44,22 +40,18 @@ def get_edf_files(path):
 
     files = os.listdir(path)
     consider = []
-    not_consider = ['R01','R02']
+    not_consider = ['R01','R02','DS_Store']
 
     for file in files:
         extension = file.split('.')
+        if 'DS_Store' in extension:
+            extension.remove('DS_Store')
         if len(extension) == 2:
             if extension[0][4:] not in not_consider:
                 if file not in consider:
                     consider.append(file)
     return consider
 
-
-consider  = get_edf_files(subject_path)
-print(60*'#')
-print('Considered')
-print(consider)
-print(60*'#')
 montage  = read_custom_montage(locations)
 
 
@@ -126,15 +118,32 @@ def preprocess_data(data_path, montage_data, rem_ocular_only = True, output_file
     reconstructed_data = ica.apply(raw_ica)
     reconstructed_data.set_annotations(data.annotations)
     mne.export.export_raw(output_file_name,reconstructed_data)
-    
+subjects = ['S001', 'S008', 'S009', 'S014','S015', 'S016', 'S018', 'S019', 'S026', 'S033']
+filter_directory = '/Users/sultm0a/Documents/Sipan Collaboration/Data/Filtered_Data_Ocular_Only'
+isExist = os.path.exists(filter_directory)
+if not isExist:
+   # Create a new directory because it does not exist
+   os.makedirs(filter_directory)
+   print("The new directory is created!")
+for subject in subjects:
+       
+
+    subject_path = os.path.join(data_path,subject)
+    considered_files = get_edf_files(subject_path)
+    print(considered_files)
+    print(60*'#')
+    filter_subject_specific_path = os.path.join(filter_directory,subject)
+    isExist = os.path.exists(filter_subject_specific_path)
+    if not isExist:
+   # Create a new directory because it does not exist
+        os.makedirs(filter_subject_specific_path)
+    for file_ in considered_files:
+        output_file_name = os.path.join(filter_subject_specific_path,file_)
+        input_file_name = os.path.join(subject_path,file_)
+        print('Working on File {}'.format(input_file_name))
+        preprocess_data(data_path = input_file_name , montage_data = montage, rem_ocular_only = True, output_file_name = output_file_name )
 
 
-
-
-
-
-output_file_name = '/Users/sultm0a/Documents/Sipan Collaboration/Data/files/S008/S008R03_ocular_filtered.edf'
-preprocess_data(data_path = '/Users/sultm0a/Documents/Sipan Collaboration/Data/files/S008/S008R03.edf', montage_data = montage, output_file_name= output_file_name)
 
 
 
